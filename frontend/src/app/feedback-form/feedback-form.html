@@ -1,0 +1,35 @@
+<!-- <h1 style="color:red;">FEEDBACK COMPONENT LOADED</h1> -->
+
+<div class="text-center">
+  <h2>Edulytix</h2>
+  <h2>AI-based student feedback analysis</h2>
+</div>
+
+<textarea
+  class="ml-4 border p-2"
+  rows="5"
+  cols="50"
+  [(ngModel)]="feedbackText"
+  placeholder="Enter your feedback here">
+</textarea>
+
+<br><br>
+
+<button
+  type="button"
+  class="bg-black text-white p-2 ml-4 disabled:opacity-50"
+  [disabled]="isLoading()"
+  (click)="submitFeedback()">
+  {{ isLoading() ? 'Submitting...' : 'Submit' }}
+</button>
+
+<br><br>
+
+<div *ngIf="sentiment()" style="border:1px solid green; padding:10px; margin-left:1rem;">
+  <p><strong>Sentiment:</strong> {{ sentiment() }}</p>
+
+  <p><strong>Keywords:</strong></p>
+  <ul>
+    <li *ngFor="let word of keywords()">{{ word }}</li>
+  </ul>
+</div>
