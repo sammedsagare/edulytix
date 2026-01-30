@@ -2,8 +2,9 @@ package com.edulytix.backend.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.*;
-import java.util.Map;
+import org.springframework.http.ResponseEntity;
+
+import java.util.*;
 
 @Service
 public class AiClientService {
@@ -18,16 +19,39 @@ public class AiClientService {
 
         String url = "http://localhost:8000/analyze";
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        Map<String, String> requestBody = new HashMap<>();
+        requestBody.put("text", text);
 
-        Map<String, String> body = Map.of("text", text);
-        HttpEntity<Map<String, String>> request =
-                new HttpEntity<>(body, headers);
+        try {
+            ResponseEntity<Map> response =
+                    restTemplate.postForEntity(url, requestBody, Map.class);
 
-        ResponseEntity<Map> response =
-                restTemplate.postForEntity(url, request, Map.class);
+            Map<String, Object> body = response.getBody();
 
-        return response.getBody();
+            if (body == null) {
+                throw new RuntimeException("Empty response from AI service");
+            }
+
+            String sentiment = body.getOrDefault("sentiment", "Neutral").toString();
+
+            List<String> keywords =
+                    body.get("keywords") instanceof List
+                            ? (List<String>) body.get("keywords")
+                            : List.of();
+
+            return Map.of(
+                    "sentiment", sentiment,
+                    "keywords", keywords
+            );
+
+        } catch (Exception e) {
+            e.printStackTrace();
+
+            // fallback so frontend never crashes
+            return Map.of(
+                    "sentiment", "Neutral",
+                    "keywords", List.of()
+            );
+        }
     }
 }
