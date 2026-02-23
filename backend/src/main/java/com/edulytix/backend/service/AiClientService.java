@@ -2,7 +2,7 @@ package com.edulytix.backend.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 
 import java.util.*;
 
@@ -15,43 +15,22 @@ public class AiClientService {
         this.restTemplate = restTemplate;
     }
 
-    public Map<String, Object> analyzeFeedback(String text) {
+    public Map<String, Object> analyzeBatch(List<String> feedbacks) {
 
-        String url = "http://localhost:8000/analyze";
+        String url = "http://localhost:8000/analyze-batch";
 
-        Map<String, String> requestBody = new HashMap<>();
-        requestBody.put("text", text);
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("feedbacks", feedbacks);
 
-        try {
-            ResponseEntity<Map> response =
-                    restTemplate.postForEntity(url, requestBody, Map.class);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
 
-            Map<String, Object> body = response.getBody();
+        HttpEntity<Map<String, Object>> entity =
+                new HttpEntity<>(requestBody, headers);
 
-            if (body == null) {
-                throw new RuntimeException("Empty response from AI service");
-            }
+        ResponseEntity<Map> response =
+                restTemplate.postForEntity(url, entity, Map.class);
 
-            String sentiment = body.getOrDefault("sentiment", "Neutral").toString();
-
-            List<String> keywords =
-                    body.get("keywords") instanceof List
-                            ? (List<String>) body.get("keywords")
-                            : List.of();
-
-            return Map.of(
-                    "sentiment", sentiment,
-                    "keywords", keywords
-            );
-
-        } catch (Exception e) {
-            e.printStackTrace();
-
-            // fallback so frontend never crashes
-            return Map.of(
-                    "sentiment", "Neutral",
-                    "keywords", List.of()
-            );
-        }
+        return response.getBody();
     }
 }

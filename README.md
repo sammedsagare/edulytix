@@ -1,164 +1,260 @@
 # Edulytix
 
-Edulytix is a full-stack web application for AI-powered student feedback analysis. Students can submit feedback through a modern UI, which is then processed using Natural Language Processing (NLP) to determine sentiment and extract relevant keywords. 
+Edulytix is a full-stack AI-powered student feedback analytics platform that processes large batches of student feedback (via CSV upload) and generates structured insights using transformer models and Large Language Models (LLMs).
 
-The application demonstrates microservices architecture with seamless integration between Angular (frontend), Java Spring Boot (backend), and Python (AI service).
+The system analyzes hundreds or thousands of feedback entries and produces:
+
+- Overall sentiment classification
+- Sentiment distribution (Positive / Neutral / Negative)
+- Top recurring keywords and themes
+- AI-generated executive summary
+- Key strengths and areas for improvement
+
+The application demonstrates a scalable microservices architecture integrating Angular (frontend), Spring Boot (backend), and Python FastAPI (AI service) with Groq-hosted LLMs.
+
+---
 
 ## Features
 
-- Modern, responsive dark-themed UI built with Angular 21 and Tailwind CSS 4
-- AI-powered sentiment analysis (Positive/Negative/Neutral)
-- Intelligent keyword extraction using KeyBERT with custom domain-specific filtering
-- Real-time feedback analysis with visual results display
-- RESTful API integration between services
-- Fast and efficient processing with educational domain optimization
+- CSV upload with dynamic column selection
+- Automatic large dataset handling (smart sampling up to 2000 rows)
+- Batch transformer-based sentiment analysis
+- Keyword extraction using KeyBERT with semantic diversity (MMR)
+- AI-generated structured summary using Groq LLaMA 3.1
+- Sentiment distribution aggregation
+- Scalable microservices architecture
+- Production-aware optimizations (batching + row limiting)
+
+---
 
 ## Architecture
 
-The application follows a microservices architecture with three main components:
+The application follows a three-service microservices architecture:
 
 ```
 ┌─────────────┐      ┌─────────────┐      ┌─────────────┐
 │   Angular   │ ───> │   Spring    │ ───> │   FastAPI   │
 │  Frontend   │      │   Boot      │      │ AI Service  │
-│  (Port 4200)│ <─── │  (Port 8080)│ <─── │ (Port 8000) │
+│  (4200)     │ <─── │  (8080)     │ <─── │  (8000)     │
 └─────────────┘      └─────────────┘      └─────────────┘
 ```
 
-### Component Details
+### Processing Flow
 
-#### Frontend (`frontend/`)
-- **Framework**: Angular 21 with Server-Side Rendering (SSR)
-- **Styling**: Tailwind CSS
-- **HTTP Client**: Angular HttpClient for API communication
-- **Features**: Reactive forms, real-time loading states, color-coded sentiment display
+1. User uploads a CSV file in the Angular frontend.
+2. User selects the feedback column.
+3. Spring Boot parses the CSV and extracts the selected column.
+4. Extracted feedback rows are sent to FastAPI as a batch.
+5. AI service:
+   - Automatically limits rows if dataset is too large
+   - Performs batched transformer sentiment inference
+   - Aggregates sentiment distribution
+   - Extracts semantic keywords
+   - Generates AI-powered summary using Groq LLM
+6. Structured analytics are returned and displayed in the UI.
 
-#### Backend (`backend/`)
-- **Framework**: Spring Boot 4.0.2
-- **Java Version**: 17
-- **API**: RESTful endpoints with CORS support
-- **Role**: Acts as middleware between frontend and AI service, handles request routing and error fallbacks
+---
 
-#### AI Service (`ai-service/`)
-- **Framework**: FastAPI
-- **NLP Engine**: KeyBERT with all-MiniLM-L6-v2 model
-- **Capabilities**:
-  - Keyword extraction using MaxSum Marginal Relevance (MMR) for diversity
-  - Custom educational domain sentiment analysis
-  - Intelligent filtering with domain-specific blacklists
-  - Keyphrase extraction with 2-3 word n-grams
+## Component Details
+
+### Frontend (`frontend/`)
+
+- Angular (Standalone components)
+- Tailwind CSS
+- Angular HttpClient
+- Angular Signals
+- CSV upload + dynamic column selector
+- Loading states + structured results display
+
+Displays:
+- Overall sentiment
+- Sentiment distribution
+- Top keywords
+- AI-generated summary
+
+---
+
+### Backend (`backend/`)
+
+- Spring Boot
+- Java 17
+- Maven
+- Apache Commons CSV (for CSV parsing)
+- RestTemplate (for AI service communication)
+
+Responsibilities:
+- Accept CSV upload
+- Extract selected column
+- Convert feedback rows into array
+- Forward data to AI service
+- Handle errors and fallback responses
+
+---
+
+### AI Service (`ai-service/`)
+
+- FastAPI
+- Transformers (HuggingFace)
+- KeyBERT
+- Groq SDK
+- Uvicorn
+
+#### Models Used
+
+- `cardiffnlp/twitter-roberta-base-sentiment-latest`
+- `all-MiniLM-L6-v2`
+- `llama-3.1-8b-instant` (Groq)
+
+#### AI Capabilities
+
+- Batch sentiment inference (vectorized processing)
+- Automatic dataset sampling (max 2000 rows)
+- Sentiment aggregation using Counter
+- Keyword extraction with MMR diversity
+- Prompt-based LLM summary generation
+- No hardcoded sentiment rules
+
+---
 
 ## Technologies Used
 
 ### Frontend
-- Angular 
-- TypeScript 
-- Tailwind CSS 
-- RxJS 
-- Angular SSR & Express
+- Angular
+- TypeScript
+- Tailwind CSS
+- RxJS
 
 ### Backend
-- Java 
-- Spring Boot 
+- Java
+- Spring Boot
 - Maven
-- RestTemplate for HTTP communication
 
 ### AI Service
 - Python
 - FastAPI
+- Transformers
 - KeyBERT
-- sentence-transformers (all-MiniLM-L6-v2)
-- Uvicorn ASGI server
+- Groq LLM
+- Uvicorn
+
+---
 
 ## Getting Started
 
 ### Prerequisites
-- **Node.js** 20+ and npm (for frontend)
-- **Java** 17+ and Maven (for backend)
-- **Python** 3.8+ and pip (for AI service)
 
-### Installation & Running
+- Node.js 20+
+- Java 17+
+- Maven
+- Python 3.9+
+- Groq API Key
 
-#### 1. AI Service (Start First)
+---
+
+## Installation & Running
+
+### 1. Start AI Service
+
 ```bash
 cd ai-service
 pip install -r requirements.txt
+
+```refer to .env.example for groq api key env file```
+
 uvicorn app.main:app --reload --port 8000
 ```
 
-#### 2. Backend (Start Second)
+### 2. Start Backend
+
 ```bash
 cd backend
 mvn spring-boot:run
 ```
 
-#### 3. Frontend (Start Last)
+### 3. Start Frontend
+
 ```bash
 cd frontend
 npm install
-npm start
-# or
 ng serve
 ```
 
-The application will be available at `http://localhost:4200`
+Application runs at:
+
+```
+http://localhost:4200
+```
+
+---
 
 ## API Endpoints
 
-### Backend API
-- **POST** `/api/feedback` - Submit feedback for analysis
-  - Request: `{ "text": "string" }`
-  - Response: `{ "sentiment": "string", "keywords": ["string"] }`
+### Backend
 
-### AI Service API
-- **POST** `/analyze` - Analyze text and extract sentiment/keywords
-  - Request: `{ "text": "string" }`
-  - Response: `{ "sentiment": "string", "keywords": ["string"] }`
+**POST** `/api/upload`
 
-## How It Works
+Accepts:
+- CSV file
+- Selected column name
 
-1. **User Input**: Student enters feedback in the Angular frontend
-2. **Request Flow**: Frontend sends POST request to Spring Boot backend
-3. **AI Processing**: Backend forwards request to FastAPI AI service
-4. **Analysis**: 
-   - KeyBERT extracts top 5 relevant keywords (2-3 word phrases)
-   - Custom algorithm infers sentiment from educational domain lexicons
-   - Filters out generic terms and duplicates
-5. **Response**: Results flow back through backend to frontend
-6. **Display**: UI shows color-coded sentiment and keyword tags
+---
 
-## Project Structure
+### AI Service
 
-```
-edulytix/
-├── frontend/          # Angular application
-│   ├── src/
-│   │   ├── app/
-│   │   │   └── feedback-form/  # Main component
-│   │   └── styles.css          # Global styles
-│   └── package.json
-│
-├── backend/           # Spring Boot application
-│   ├── src/main/java/com/edulytix/backend/
-│   │   ├── controllers/  # REST controllers
-│   │   ├── service/      # AI client service
-│   │   └── dto/          # Data transfer objects
-│   └── pom.xml
-│
-└── ai-service/        # Python FastAPI service
-    ├── app/
-    │   └── main.py    # NLP analysis logic
-    └── requirements.txt
+**POST** `/analyze-batch`
+
+Request:
+
+```json
+{
+  "feedbacks": ["text1", "text2", "text3"]
+}
 ```
 
-## Development Notes
+Response:
 
-- The AI service uses domain-specific lexicons optimized for educational feedback
-- Custom blacklist filters out non-informative keywords like "teacher", "person", "things"
-- Backend includes error handling with neutral fallback responses
-- Frontend uses Angular signals for reactive state management
-- All services support hot-reload during development
+```json
+{
+  "overall_sentiment": "Positive",
+  "sentiment_distribution": { ... },
+  "top_keywords": [ ... ],
+  "summary": "..."
+}
+```
+
+---
+
+## Scalability Features
+
+- Automatic row limiting (max 2000 rows)
+- Batch transformer inference
+- LLM sampling (first 50 entries for summary)
+- Designed to handle very large CSV datasets safely
+
+---
+
+## How It Works (AI Logic)
+
+1. Clean and validate feedback entries
+2. Limit dataset size if necessary
+3. Perform batched sentiment inference
+4. Aggregate sentiment distribution
+5. Extract top semantic keywords
+6. Generate structured summary using LLM
+7. Return analytics to frontend
+
+---
+
+## Future Improvements
+
+- Async background job processing
+- Redis queue integration
+- Sentiment trend visualization
+- Instructor comparison dashboard
+- Authentication & role-based access
+
+---
 
 ## License
 
-This project is for educational purposes.
+This project is for educational and demonstration purposes.

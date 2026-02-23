@@ -1,7 +1,8 @@
 fastapi
 uvicorn
-pydantic
+transformers
+torch
 keybert
 sentence-transformers
-scikit-learn
-numpy
+groq
+python-multipart

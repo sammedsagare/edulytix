@@ -1,125 +1,162 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from typing import List, Dict
+from transformers import pipeline
 from keybert import KeyBERT
-from typing import List
+from groq import Groq
+import os
+import random
+from collections import Counter
+
+from dotenv import load_dotenv
+load_dotenv()
 
 app = FastAPI()
 
-# ===============================
-# Load model once
-# ===============================
+# =====================================
+# CONFIG
+# =====================================
+
+MAX_ROWS = 2000
+BATCH_SIZE = 32
+
+# =====================================
+# Load Models ONCE
+# =====================================
+
+sentiment_pipeline = pipeline(
+    "sentiment-analysis",
+    model="cardiffnlp/twitter-roberta-base-sentiment-latest"
+)
 
 keyword_model = KeyBERT("all-MiniLM-L6-v2")
 
-# ===============================
-# Request / Response models
-# ===============================
+groq_client = Groq(
+    api_key=os.getenv("GROQ_API_KEY")
+)
 
-class FeedbackRequest(BaseModel):
-    text: str
+# =====================================
+# Request / Response Models
+# =====================================
 
-class AnalysisResponse(BaseModel):
-    sentiment: str
-    keywords: List[str]
+class BatchRequest(BaseModel):
+    feedbacks: List[str]
 
-# ===============================
-# Sentiment Lexicons (EDU DOMAIN)
-# ===============================
+class BatchResponse(BaseModel):
+    overall_sentiment: str
+    sentiment_distribution: Dict[str, int]
+    top_keywords: List[str]
+    summary: str
 
-POSITIVE_TERMS = {
-    "good", "clear", "clearly", "helpful", "excellent",
-    "amazing", "well", "engaging", "effective"
-}
+# =====================================
+# Helper Functions
+# =====================================
 
-NEGATIVE_TERMS = {
-    "poor", "poorly", "rude", "slow", "fast", "confusing",
-    "unclear", "boring", "bad", "terrible"
-}
-
-BLACKLIST_WORDS = {
-    "concepts", "thing", "things", "person", "teacher", "sir", "mr"
-}
-
-# ===============================
-# Helper functions
-# ===============================
-
-def clean_keywords(keywords: List[str]) -> List[str]:
-    seen = set()
-    cleaned = []
-
-    for kw in keywords:
-        kw = kw.lower().strip()
-        if kw not in seen:
-            seen.add(kw)
-            cleaned.append(kw)
-
-    return cleaned
+def limit_rows(feedbacks: List[str]) -> List[str]:
+    if len(feedbacks) > MAX_ROWS:
+        print(f"[INFO] Large dataset detected ({len(feedbacks)} rows). Sampling {MAX_ROWS}.")
+        return random.sample(feedbacks, MAX_ROWS)
+    return feedbacks
 
 
-def filter_keywords(keywords: List[str]) -> List[str]:
-    return [
-        kw for kw in keywords
-        if all(word not in BLACKLIST_WORDS for word in kw.split())
-    ]
+def aggregate_sentiment(feedbacks: List[str]):
+    results = sentiment_pipeline(
+        feedbacks,
+        batch_size=BATCH_SIZE,
+        truncation=True
+    )
+
+    sentiments = []
+
+    for result in results:
+        label = result["label"].lower()
+
+        if "positive" in label:
+            sentiments.append("positive")
+        elif "negative" in label:
+            sentiments.append("negative")
+        else:
+            sentiments.append("neutral")
+
+    distribution = Counter(sentiments)
+    overall = distribution.most_common(1)[0][0]
+
+    return overall.capitalize(), distribution
 
 
-def infer_sentiment_from_keywords(keywords: List[str]) -> str:
-    pos_score = 0
-    neg_score = 0
+def extract_keywords(feedbacks: List[str]):
+    combined_text = " ".join(feedbacks)
 
-    for kw in keywords:
-        for word in kw.split():
-            if word in POSITIVE_TERMS:
-                pos_score += 1
-            if word in NEGATIVE_TERMS:
-                neg_score += 1
+    keywords_raw = keyword_model.extract_keywords(
+        combined_text,
+        keyphrase_ngram_range=(1, 3),
+        stop_words="english",
+        use_mmr=True,
+        diversity=0.7,
+        top_n=10
+    )
 
-    if neg_score > pos_score:
-        return "Negative"
-    elif pos_score > neg_score:
-        return "Positive"
-    else:
-        return "Neutral"
+    return [kw for kw, _ in keywords_raw]
 
-# ===============================
+
+def generate_summary(feedbacks: List[str]):
+
+    sample_for_summary = feedbacks[:50]
+    prompt = f"""
+You are an educational analytics assistant analyzing student feedback.
+
+Feedback entries:
+{chr(10).join(sample_for_summary)}
+
+Provide a brief analysis with:
+1. Overall summary (5-7 sentences)
+2. Key strengths observed
+3. Areas for improvement
+
+Keep the response simple and conversational. Use plain text only - no formatting, bold text, asterisks, or special characters.
+"""
+
+    response = groq_client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+    )
+
+    return response.choices[0].message.content.strip()
+
+
+# =====================================
 # API Endpoint
-# ===============================
+# =====================================
 
-@app.post("/analyze", response_model=AnalysisResponse)
-def analyze_feedback(request: FeedbackRequest):
+@app.post("/analyze-batch", response_model=BatchResponse)
+def analyze_batch(request: BatchRequest):
 
-    text = request.text.strip()
+    feedbacks = [f.strip() for f in request.feedbacks if f.strip()]
 
-    if len(text) < 5:
+    if not feedbacks:
         return {
-            "sentiment": "Neutral",
-            "keywords": []
+            "overall_sentiment": "Neutral",
+            "sentiment_distribution": {},
+            "top_keywords": [],
+            "summary": "No valid feedback provided."
         }
 
-    # ---- Keyword Extraction ----
-    try:
-        keywords_raw = keyword_model.extract_keywords(
-            text,
-            keyphrase_ngram_range=(2, 3),
-            stop_words="english",
-            use_mmr=True,
-            diversity=0.7,
-            top_n=5
-        )
+    # 🚀 Apply smart limiting
+    feedbacks = limit_rows(feedbacks)
 
-        keywords = [kw for kw, _ in keywords_raw]
-        keywords = clean_keywords(keywords)
-        keywords = filter_keywords(keywords)
+    # 🚀 Batch sentiment
+    overall_sentiment, distribution = aggregate_sentiment(feedbacks)
 
-    except Exception as e:
-        print("Keyword error:", e)
-        keywords = []
+    # 🚀 Keywords
+    keywords = extract_keywords(feedbacks)
 
-    # ---- Sentiment from keywords ----
-    sentiment = infer_sentiment_from_keywords(keywords)
+    # 🚀 LLM summary
+    summary = generate_summary(feedbacks)
 
     return {
-        "sentiment": sentiment,
-        "keywords": keywords
+        "overall_sentiment": overall_sentiment,
+        "sentiment_distribution": dict(distribution),
+        "top_keywords": keywords,
+        "summary": summary
     }

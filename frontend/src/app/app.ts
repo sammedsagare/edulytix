@@ -5,6 +5,6 @@ import { FeedbackFormComponent } from './feedback-form/feedback-form';
   selector: 'app-root',
   standalone: true,
   imports: [FeedbackFormComponent],
-  template: `<app-feedback-form></app-feedback-form>`
+  templateUrl: './app.html'
 })
-export class App {}
+export class AppComponent {}

@@ -1,35 +1,89 @@
-<!-- <h1 style="color:red;">FEEDBACK COMPONENT LOADED</h1> -->
+<div class="min-h-screen bg-black flex items-center justify-center px-6 py-12">
+  <div class="w-full max-w-4xl bg-neutral-900 rounded-3xl shadow-2xl p-10">
 
-<div class="text-center">
-  <h2>Edulytix</h2>
-  <h2>AI-based student feedback analysis</h2>
-</div>
+    <!-- Header -->
+    <div class="text-center mb-10">
+      <h1 class="text-4xl font-bold text-white">Edulytix</h1>
+      <p class="text-neutral-400 mt-2">
+        Upload CSV and Select Feedback Column
+      </p>
+    </div>
 
-<textarea
-  class="ml-4 border p-2"
-  rows="5"
-  cols="50"
-  [(ngModel)]="feedbackText"
-  placeholder="Enter your feedback here">
-</textarea>
+    <!-- Upload CSV -->
+    <div class="mb-6">
+      <input
+        type="file"
+        accept=".csv"
+        (change)="onFileSelected($event)"
+        class="text-white"
+      />
+    </div>
 
-<br><br>
+    <!-- Column Selector -->
+    @if (columns().length > 0) {
 
-<button
-  type="button"
-  class="bg-black text-white p-2 ml-4 disabled:opacity-50"
-  [disabled]="isLoading()"
-  (click)="submitFeedback()">
-  {{ isLoading() ? 'Submitting...' : 'Submit' }}
-</button>
+      <div class="mb-6">
+        <label class="block text-neutral-300 mb-2">
+          Select Column Containing Feedback:
+        </label>
 
-<br><br>
+        <select
+          class="w-full p-3 bg-neutral-800 text-white rounded-lg"
+          (change)="onColumnChange($event)"
+        >
+          <option value="">-- Select Column --</option>
+          @for (col of columns(); track col) {
+            <option [value]="col">{{ col }}</option>
+          }
+        </select>
+      </div>
 
-<div *ngIf="sentiment()" style="border:1px solid green; padding:10px; margin-left:1rem;">
-  <p><strong>Sentiment:</strong> {{ sentiment() }}</p>
+      <button
+        (click)="analyze()"
+        class="px-6 py-3 bg-emerald-500 text-black rounded-lg font-semibold"
+      >
+        Analyze Selected Column
+      </button>
+    }
 
-  <p><strong>Keywords:</strong></p>
-  <ul>
-    <li *ngFor="let word of keywords()">{{ word }}</li>
-  </ul>
+    <!-- Loading -->
+    @if (isLoading()) {
+      <div class="mt-6 text-emerald-400">
+        Analyzing feedback...
+      </div>
+    }
+
+    <!-- Results -->
+    @if (overallSentiment()) {
+
+      <div class="mt-10 text-white">
+
+        <h2 class="text-2xl mb-4">
+          Overall Sentiment: {{ overallSentiment() }}
+        </h2>
+
+        <div class="mb-4">
+          <p>Positive: {{ sentimentDistribution().positive || 0 }}</p>
+          <p>Neutral: {{ sentimentDistribution().neutral || 0 }}</p>
+          <p>Negative: {{ sentimentDistribution().negative || 0 }}</p>
+        </div>
+
+        <h3 class="mt-4 text-xl">Top Keywords:</h3>
+        <div class="flex flex-wrap gap-2 mt-2">
+          @for (word of keywords(); track word) {
+            <span class="bg-neutral-800 px-3 py-1 rounded">
+              {{ word }}
+            </span>
+          }
+        </div>
+
+        <h3 class="mt-6 text-xl">AI Summary:</h3>
+        <div class="bg-neutral-800 p-4 rounded mt-2 whitespace-pre-line">
+          {{ summary() }}
+        </div>
+
+      </div>
+    }
+
+  </div>
 </div>
