@@ -101,7 +101,10 @@ def extract_keywords(feedbacks: List[str]):
 
 def generate_summary(feedbacks: List[str]):
 
-    sample_for_summary = feedbacks[:50]
+    sample_for_summary = random.sample(
+    feedbacks,
+    min(50, len(feedbacks))
+)
     prompt = f"""
 You are an educational analytics assistant analyzing student feedback.
 
