@@ -1,260 +1,266 @@
-# Edulytix
+# Edulytix — AI-Powered Student Feedback Analytics
 
 Edulytix is a full-stack AI-powered student feedback analytics platform that processes large batches of student feedback (via CSV upload) and generates structured insights using transformer models and Large Language Models (LLMs).
 
-The system analyzes hundreds or thousands of feedback entries and produces:
-
-- Overall sentiment classification
-- Sentiment distribution (Positive / Neutral / Negative)
-- Top recurring keywords and themes
-- AI-generated executive summary
-- Key strengths and areas for improvement
-
-The application demonstrates a scalable microservices architecture integrating Angular (frontend), Spring Boot (backend), and Python FastAPI (AI service) with Groq-hosted LLMs.
-
----
-
-## Features
-
-- CSV upload with dynamic column selection
-- Automatic large dataset handling (smart sampling up to 2000 rows)
-- Batch transformer-based sentiment analysis
-- Keyword extraction using KeyBERT with semantic diversity (MMR)
-- AI-generated structured summary using Groq LLaMA 3.1
-- Sentiment distribution aggregation
-- Scalable microservices architecture
-- Production-aware optimizations (batching + row limiting)
+> Upload CSV → Select column → Get AI-generated sentiment analysis, keywords & summary — all tied to your personal account.
 
 ---
 
 ## Architecture
 
-The application follows a three-service microservices architecture:
+```
+┌──────────────────────────────────────────────────────────────┐
+│                        User Browser                          │
+│             Angular SPA  (port 4200 / :80)               │
+└───────────────────────┬──────────────────────────────────────┘
+                        │ HTTP + JWT Bearer
+┌───────────────────────▼──────────────────────────────────────┐
+│          Spring Boot Backend  (port 8080)                    │
+│  Auth · CSV parsing · Orchestration · PostgreSQL persistence │
+└──────────┬────────────────────────────┬────────────────────--┘
+           │ JPA                        │ WebClient (HTTP)
+    ┌──────▼──────┐             ┌───────▼────────────────────┐
+    │ PostgreSQL  │             │  FastAPI AI Service (8000) │
+    │   (5432)   │             │  RoBERTa · KeyBERT · Groq  │
+    └─────────────┘             └────────────────────────────┘
+```
+
+## Tech Stack
+
+| Layer      | Technology                                         |
+|------------|----------------------------------------------------|
+| Frontend   | Angular, Standalone Components, Signals, CSS    |
+| Backend    | Java, Spring Boot, Spring Security, JWT     |
+| AI Service | Python, FastAPI, Transformers, KeyBERT, Groq  |
+| Database   | PostgreSQL                                      |
+| DevOps     | Docker, Docker Compose, Nginx                      |
+
+---
+
+## Project Structure
 
 ```
-┌─────────────┐      ┌─────────────┐      ┌─────────────┐
-│   Angular   │ ───> │   Spring    │ ───> │   FastAPI   │
-│  Frontend   │      │   Boot      │      │ AI Service  │
-│  (4200)     │ <─── │  (8080)     │ <─── │  (8000)     │
-└─────────────┘      └─────────────┘      └─────────────┘
+edulytix/
+├── frontend/                        # Angular app
+│   ├── src/app/
+│   │   ├── core/
+│   │   │   ├── guards/              # authGuard
+│   │   │   ├── interceptors/        # authInterceptor (JWT)
+│   │   │   └── services/            # AuthService, FeedbackService
+│   │   ├── features/
+│   │   │   ├── auth/login/          # Login page
+│   │   │   ├── auth/signup/         # Signup page
+│   │   │   ├── dashboard/           # Home dashboard
+│   │   │   ├── upload/              # CSV upload + column pick
+│   │   │   ├── results/             # Analysis results view
+│   │   │   └── history/             # Past analyses table
+│   │   └── shared/
+│   │       ├── components/          # NavbarComponent
+│   │       └── models/              # TypeScript interfaces
+│   ├── Dockerfile
+│   └── nginx.conf
+│
+├── backend/                         # Spring Boot app
+│   └── src/main/java/com/edulytix/
+│       ├── config/                  # SecurityConfig, WebClientConfig
+│       ├── controller/              # AuthController, FeedbackController
+│       ├── dto/                     # AuthDtos, AiDtos, AnalysisResponseDto
+│       ├── entity/                  # User, FeedbackAnalysis
+│       ├── repository/              # UserRepository, FeedbackAnalysisRepository
+│       ├── security/                # JwtUtils, JwtAuthFilter
+│       └── service/                 # AuthService, FeedbackService, UserDetailsServiceImpl
+│
+├── ai-service/                      # FastAPI NLP service
+│   ├── main.py                      # All NLP logic + endpoints
+│   ├── requirements.txt
+│   └── Dockerfile
+│
+├── docs/
+│   └── schema.sql                   # Reference PostgreSQL schema
+│
+├── docker-compose.yml
+├── .env.example
+└── README.md
 ```
 
-### Processing Flow
-
-1. User uploads a CSV file in the Angular frontend.
-2. User selects the feedback column.
-3. Spring Boot parses the CSV and extracts the selected column.
-4. Extracted feedback rows are sent to FastAPI as a batch.
-5. AI service:
-   - Automatically limits rows if dataset is too large
-   - Performs batched transformer sentiment inference
-   - Aggregates sentiment distribution
-   - Extracts semantic keywords
-   - Generates AI-powered summary using Groq LLM
-6. Structured analytics are returned and displayed in the UI.
-
 ---
 
-## Component Details
-
-### Frontend (`frontend/`)
-
-- Angular (Standalone components)
-- Tailwind CSS
-- Angular HttpClient
-- Angular Signals
-- CSV upload + dynamic column selector
-- Loading states + structured results display
-
-Displays:
-- Overall sentiment
-- Sentiment distribution
-- Top keywords
-- AI-generated summary
-
----
-
-### Backend (`backend/`)
-
-- Spring Boot
-- Java 17
-- Maven
-- Apache Commons CSV (for CSV parsing)
-- RestTemplate (for AI service communication)
-
-Responsibilities:
-- Accept CSV upload
-- Extract selected column
-- Convert feedback rows into array
-- Forward data to AI service
-- Handle errors and fallback responses
-
----
-
-### AI Service (`ai-service/`)
-
-- FastAPI
-- Transformers (HuggingFace)
-- KeyBERT
-- Groq SDK
-- Uvicorn
-
-#### Models Used
-
-- `cardiffnlp/twitter-roberta-base-sentiment-latest`
-- `all-MiniLM-L6-v2`
-- `llama-3.1-8b-instant` (Groq)
-
-#### AI Capabilities
-
-- Batch sentiment inference (vectorized processing)
-- Automatic dataset sampling (max 2000 rows)
-- Sentiment aggregation using Counter
-- Keyword extraction with MMR diversity
-- Prompt-based LLM summary generation
-- No hardcoded sentiment rules
-
----
-
-## Technologies Used
-
-### Frontend
-- Angular
-- TypeScript
-- Tailwind CSS
-- RxJS
-
-### Backend
-- Java
-- Spring Boot
-- Maven
-
-### AI Service
-- Python
-- FastAPI
-- Transformers
-- KeyBERT
-- Groq LLM
-- Uvicorn
-
----
-
-## Getting Started
+## Quick Start
 
 ### Prerequisites
+- Docker & Docker Compose v2+
+- (Optional) Node, Java, Python for local dev
 
-- Node.js 20+
-- Java 17+
-- Maven
-- Python 3.9+
-- Groq API Key
+### 1. Clone & Configure
+
+```bash
+git clone https://github.com/your-org/edulytix.git
+cd edulytix
+
+# Create environment file
+cp .env.example .env
+# Edit .env and set:
+#   GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxx
+#   JWT_SECRET=your-strong-random-secret-32chars
+```
+
+Get a free Groq API key at [console.groq.com](https://console.groq.com).
+
+### 2. Run with Docker Compose
+
+```bash
+docker-compose up --build
+```
+
+> ⏳ First run downloads ~2 GB of ML models. Subsequent starts are fast.
+
+| Service       | URL                       |
+|---------------|---------------------------|
+| Frontend      | http://localhost:4200      |
+| Backend API   | http://localhost:8080      |
+| AI Service    | http://localhost:8000      |
+| PostgreSQL    | localhost:5432             |
+
+### 3. Open the App
+
+Navigate to **http://localhost:4200**, create an account, and upload a CSV.
 
 ---
 
-## Installation & Running
+## Local Development (without Docker)
 
-### 1. Start AI Service
+### PostgreSQL
+
+```bash
+psql -U postgres
+CREATE DATABASE edulytix;
+CREATE USER edulytix1 WITH PASSWORD 'pass@1234';
+GRANT ALL PRIVILEGES ON DATABASE edulytix TO edulytix_user;
+```
+
+### AI Service
 
 ```bash
 cd ai-service
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-
-```refer to .env.example for groq api key env file```
-
-uvicorn app.main:app --reload --port 8000
+cp .env.example .env   # add your GROQ_API_KEY
+uvicorn main:app --reload --port 8000
 ```
 
-### 2. Start Backend
+### Spring Boot Backend
 
 ```bash
 cd backend
-mvn spring-boot:run
+./mvnw spring-boot:run
+# Runs on http://localhost:8080
 ```
 
-### 3. Start Frontend
+### Angular Frontend
 
 ```bash
 cd frontend
 npm install
-ng serve
-```
-
-Application runs at:
-
-```
-http://localhost:4200
+npm start
+# Runs on http://localhost:4200
 ```
 
 ---
 
-## API Endpoints
+## API Reference
 
-### Backend
+### Auth (public)
 
-**POST** `/api/upload`
+| Method | Endpoint           | Body                        | Returns         |
+|--------|--------------------|-----------------------------|-----------------|
+| POST   | /api/auth/signup   | `{email, password}`         | `{token, email}`|
+| POST   | /api/auth/login    | `{email, password}`         | `{token, email}`|
 
-Accepts:
-- CSV file
-- Selected column name
+### Feedback (protected — requires `Authorization: Bearer <token>`)
+
+| Method | Endpoint      | Params                           | Returns              |
+|--------|---------------|----------------------------------|----------------------|
+| POST   | /api/columns  | `file` (multipart)               | `["col1","col2",…]`  |
+| POST   | /api/upload   | `file` (multipart), `column`     | `AnalysisResult`     |
+| GET    | /api/history  | —                                | `AnalysisResult[]`   |
+
+### AI Service (internal)
+
+| Method | Endpoint        | Body                        | Returns              |
+|--------|-----------------|-----------------------------|----------------------|
+| POST   | /analyze-batch  | `{feedbacks: string[]}`     | `AnalysisResponse`   |
+| GET    | /health         | —                           | `{status:"ok"}`      |
 
 ---
 
-### AI Service
+## AI Pipeline Details
 
-**POST** `/analyze-batch`
-
-Request:
-
-```json
-{
-  "feedbacks": ["text1", "text2", "text3"]
-}
+```
+CSV rows (up to 2000)
+       │
+       ▼
+  Text cleaning (URLs, non-ASCII, whitespace)
+       │
+       ├──▶ cardiffnlp/twitter-roberta-base-sentiment-latest
+       │         Batch inference (chunks of 64)
+       │         → Positive / Negative / Neutral per row
+       │         → Distribution percentages
+       │
+       ├──▶ KeyBERT (all-MiniLM-L6-v2)
+       │         MMR diversity = 0.5
+       │         Top 15 keywords/keyphrases
+       │
+       └──▶ Groq LLaMA 3.1 (llama-3.1-8b-instant)
+                 Sample of 50 rows + distribution
+                 → Executive summary (2-3 paragraphs)
+                 → Top 3 strengths
+                 → Top 3 improvement areas
 ```
 
-Response:
+---
 
-```json
-{
-  "overall_sentiment": "Positive",
-  "sentiment_distribution": { ... },
-  "top_keywords": [ ... ],
-  "summary": "..."
-}
+## Environment Variables
+
+### `ai-service/.env`
+```
+GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxx
+```
+
+### `backend/src/main/resources/application.properties`
+```
+spring.datasource.url=jdbc:postgresql://localhost:5432/edulytix
+spring.datasource.username=edulytix_user
+spring.datasource.password=edulytix_pass
+app.jwt.secret=your-secret-min-32-chars
+app.jwt.expiration-ms=86400000
+ai.service.url=http://localhost:8000
 ```
 
 ---
 
-## Scalability Features
+## Security Notes
 
-- Automatic row limiting (max 2000 rows)
-- Batch transformer inference
-- LLM sampling (first 50 entries for summary)
-- Designed to handle very large CSV datasets safely
-
----
-
-## How It Works (AI Logic)
-
-1. Clean and validate feedback entries
-2. Limit dataset size if necessary
-3. Perform batched sentiment inference
-4. Aggregate sentiment distribution
-5. Extract top semantic keywords
-6. Generate structured summary using LLM
-7. Return analytics to frontend
+- Passwords hashed with BCrypt (strength 12)
+- JWT tokens expire after 24 hours (configurable)
+- All feedback endpoints require a valid JWT
+- CORS restricted to localhost:4200 in development
+- File upload capped at 50 MB
+- AI rows capped at 2000 for performance
 
 ---
 
-## Future Improvements
+## Troubleshooting
 
-- Async background job processing
-- Redis queue integration
-- Sentiment trend visualization
-- Instructor comparison dashboard
-- Authentication & role-based access
+| Issue | Fix |
+|-------|-----|
+| AI models fail to load | Ensure at least 4 GB RAM is available for Docker |
+| `GROQ_API_KEY` error | Add key to `.env` and restart `ai-service` |
+| CORS errors | Check backend `SecurityConfig` allowed origins match your frontend URL |
+| JWT 401 errors | Token may be expired — log out and log in again |
+| PostgreSQL connection refused | Wait for `postgres` healthcheck to pass before starting backend |
 
 ---
 
 ## License
 
-This project is for educational and demonstration purposes.
+MIT © Edulytix
