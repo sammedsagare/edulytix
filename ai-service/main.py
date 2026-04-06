@@ -27,8 +27,8 @@ groq_client = None
 SENTIMENT_MODEL = "cardiffnlp/twitter-roberta-base-sentiment-latest"
 KEYWORD_MODEL   = "all-MiniLM-L6-v2"
 GROQ_MODEL      = "llama-3.1-8b-instant"
-MAX_ROWS        = 2000
-SUMMARY_SAMPLE  = 50
+MAX_ROWS        = 200
+SUMMARY_SAMPLE  = 30
 
 
 # Lifespan (replaces deprecated @app.on_event)
