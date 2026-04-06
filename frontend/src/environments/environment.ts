@@ -6,5 +6,5 @@
 
 export const environment = {
   production: false,
-  apiUrl: 'https://edulytix-backend.onrender.com/api',
+  apiUrl: 'https://edulytix-backend.onrender.com/api', // /api
 };
