@@ -1,6 +1,8 @@
 package com.edulytix.service;
 
 import com.edulytix.dto.AiDtos;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.client.RestTemplate;
 import com.edulytix.dto.AnalysisResponseDto;
 import com.edulytix.entity.FeedbackAnalysis;
 import com.edulytix.entity.User;
@@ -12,8 +14,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -34,7 +38,10 @@ public class FeedbackService {
 
     private final FeedbackAnalysisRepository analysisRepository;
     private final UserRepository userRepository;
-    private final WebClient aiWebClient;
+    private final RestTemplate aiRestTemplate;
+
+@Value("${ai.service.url}")
+private String aiServiceUrl;
     private final ObjectMapper objectMapper;
 
     private static final int MAX_ROWS = 2000;
@@ -60,12 +67,11 @@ public class FeedbackService {
         AiDtos.AiRequest aiRequest = new AiDtos.AiRequest();
         aiRequest.setFeedbacks(feedbackTexts);
 
-        AiDtos.AiResponse aiResponse = aiWebClient.post()
-                .uri("/analyze-batch")
-                .bodyValue(aiRequest)
-                .retrieve()
-                .bodyToMono(AiDtos.AiResponse.class)
-                .block();
+        AiDtos.AiResponse aiResponse = aiRestTemplate.postForObject(
+        aiServiceUrl + "/analyze-batch",
+        aiRequest,
+        AiDtos.AiResponse.class
+);
 
         if (aiResponse == null) {
             throw new RuntimeException("AI service returned null response");
